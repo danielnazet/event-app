@@ -106,6 +106,27 @@ export async function scheduleBirthdayNotifications(birthday: Birthday) {
         // Anuluj istniejące powiadomienia dla tych urodzin
         await cancelBirthdayNotifications(birthday.id);
 
+        // Pobierz datę urodzin
+        const birthdayDate = parseISO(birthday.date);
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        
+        // Ustaw datę na bieżący rok
+        const thisYearBirthday = new Date(currentYear, birthdayDate.getMonth(), birthdayDate.getDate());
+        
+        // Ustaw datę na przyszły rok
+        const nextYearBirthday = new Date(currentYear + 1, birthdayDate.getMonth(), birthdayDate.getDate());
+        
+        // Wybierz odpowiednią datę (bieżący rok lub przyszły rok, jeśli data już minęła)
+        const targetDate = thisYearBirthday < today ? nextYearBirthday : thisYearBirthday;
+        
+        // Ustaw datę powiadomienia na tydzień przed
+        const weekBeforeDate = subDays(targetDate, 7);
+        
+        console.log(`Planowanie powiadomień dla urodzin ${birthday.person_name}:`);
+        console.log(`- Data urodzin w tym/przyszłym roku: ${format(targetDate, 'yyyy-MM-dd')}`);
+        console.log(`- Powiadomienie tydzień wcześniej: ${format(weekBeforeDate, 'yyyy-MM-dd')}`);
+
         // Powiadomienie w dniu urodzin
         await Notifications.scheduleNotificationAsync({
             content: {
@@ -114,9 +135,8 @@ export async function scheduleBirthdayNotifications(birthday: Birthday) {
                 data: { type: 'birthday', birthdayId: birthday.id },
             },
             trigger: {
-                seconds: 10, // Dla testów - powiadomienie po 10 sekundach
-                repeats: false,
-                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL
+                date: targetDate,
+                type: Notifications.SchedulableTriggerInputTypes.DATE
             },
         });
 
@@ -128,9 +148,8 @@ export async function scheduleBirthdayNotifications(birthday: Birthday) {
                 data: { type: 'birthday', birthdayId: birthday.id },
             },
             trigger: {
-                seconds: 10, // Dla testów - powiadomienie po 10 sekundach
-                repeats: false,
-                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL
+                date: weekBeforeDate,
+                type: Notifications.SchedulableTriggerInputTypes.DATE
             },
         });
 
@@ -144,36 +163,68 @@ export async function scheduleBirthdayNotifications(birthday: Birthday) {
 // Zaplanuj powiadomienia dla wydarzenia
 export async function scheduleEventNotifications(event: Event) {
     try {
+        console.log('Próba zaplanowania powiadomień dla wydarzenia:', event);
+        
+        if (!event || !event.id) {
+            console.error('Brak prawidłowego wydarzenia do zaplanowania powiadomień');
+            return { success: false, error: 'Brak prawidłowego wydarzenia' };
+        }
+        
         // Anuluj istniejące powiadomienia dla tego wydarzenia
-        await cancelEventNotifications(event.id);
+        try {
+            await cancelEventNotifications(event.id);
+        } catch (cancelError) {
+            console.error('Błąd podczas anulowania istniejących powiadomień:', cancelError);
+            // Kontynuuj mimo błędu
+        }
+
+        // Pobierz datę wydarzenia
+        const eventDate = parseISO(event.date);
+        
+        // Ustaw datę powiadomienia na dzień przed
+        const dayBeforeDate = subDays(eventDate, 1);
+        
+        console.log(`Planowanie powiadomień dla wydarzenia ${event.title}:`);
+        console.log(`- Data wydarzenia: ${format(eventDate, 'yyyy-MM-dd')}`);
+        console.log(`- Powiadomienie dzień wcześniej: ${format(dayBeforeDate, 'yyyy-MM-dd')}`);
 
         // Powiadomienie w dniu wydarzenia
-        await Notifications.scheduleNotificationAsync({
-            content: {
-                title: `Dziś wydarzenie: ${event.title}!`,
-                body: event.description || `Nie zapomnij o dzisiejszym wydarzeniu!`,
-                data: { type: 'event', eventId: event.id },
-            },
-            trigger: {
-                seconds: 10, // Dla testów - powiadomienie po 10 sekundach
-                repeats: false,
-                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL
-            },
-        });
+        try {
+            await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: `Dziś wydarzenie: ${event.title}!`,
+                    body: event.description || `Nie zapomnij o dzisiejszym wydarzeniu!`,
+                    data: { type: 'event', eventId: event.id },
+                },
+                trigger: {
+                    date: eventDate,
+                    type: Notifications.SchedulableTriggerInputTypes.DATE
+                },
+            });
+            console.log('Zaplanowano powiadomienie w dniu wydarzenia');
+        } catch (notificationError) {
+            console.error('Błąd podczas planowania powiadomienia w dniu wydarzenia:', notificationError);
+            // Kontynuuj mimo błędu
+        }
 
         // Powiadomienie na dzień przed
-        await Notifications.scheduleNotificationAsync({
-            content: {
-                title: `Jutro wydarzenie: ${event.title}`,
-                body: `Przygotuj się na jutrzejsze wydarzenie!`,
-                data: { type: 'event', eventId: event.id },
-            },
-            trigger: {
-                seconds: 10, // Dla testów - powiadomienie po 10 sekundach
-                repeats: false,
-                type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL
-            },
-        });
+        try {
+            await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: `Jutro wydarzenie: ${event.title}`,
+                    body: `Przygotuj się na jutrzejsze wydarzenie!`,
+                    data: { type: 'event', eventId: event.id },
+                },
+                trigger: {
+                    date: dayBeforeDate,
+                    type: Notifications.SchedulableTriggerInputTypes.DATE
+                },
+            });
+            console.log('Zaplanowano powiadomienie na dzień przed wydarzeniem');
+        } catch (notificationError) {
+            console.error('Błąd podczas planowania powiadomienia na dzień przed wydarzeniem:', notificationError);
+            // Kontynuuj mimo błędu
+        }
 
         return { success: true };
     } catch (error) {

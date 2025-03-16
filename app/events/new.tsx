@@ -22,18 +22,23 @@ import { pl } from "date-fns/locale";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { createEvent, uploadEventImage } from "../../lib/services/eventService";
 import { scheduleEventNotifications } from "../../lib/services/notificationService";
+import { useLocalSearchParams } from "expo-router";
 
 // Rozszerzamy typ Colors o brakujące właściwości
 declare module "@/constants/Colors" {
 	interface ColorTheme {
 		border: string;
 		card: string;
+		inputText: string;
+		inputBackground: string;
 	}
 }
 
 export default function EventFormScreen() {
+	const { id } = useLocalSearchParams<{ id: string }>();
 	const { user } = useAuth();
 	const colorScheme = useColorScheme();
+	const isDark = colorScheme === 'dark';
 	const colors = Colors[colorScheme ?? "light"];
 	const [title, setTitle] = useState("");
 	const [description, setDescription] = useState("");
@@ -58,52 +63,37 @@ export default function EventFormScreen() {
 
 		try {
 			setLoading(true);
-			let finalImageUrl = imageUri;
-
-			// Jeśli jest nowy obraz do przesłania
-			if (imageUri && imageUri.startsWith("file://")) {
-				const { url, error: uploadError } = await uploadEventImage(
-					user.id,
-					imageUri
-				);
-				if (uploadError) {
-					console.error(
-						"Błąd podczas przesyłania obrazu:",
-						uploadError
-					);
-					Alert.alert(
-						"Ostrzeżenie",
-						"Nie udało się przesłać obrazu, ale wydarzenie zostanie zapisane"
-					);
-				} else {
-					finalImageUrl = url;
-				}
-			}
-
-			// Format czasu HH:MM
-			const timeString = format(time, "HH:mm");
-
+			
+			// Przygotowujemy dane wydarzenia zgodnie z nowym schematem bazy danych
 			const eventData = {
 				user_id: user.id,
 				title: title,
 				description: description,
 				date: format(date, "yyyy-MM-dd"),
-				time: timeString,
-				location: location,
-				image_url: finalImageUrl,
 			};
+
+			console.log("Dane wydarzenia do zapisania:", eventData);
 
 			// Tworzenie nowego wydarzenia
 			const result = await createEvent(eventData);
 
 			if (result.error) {
-				Alert.alert("Błąd", "Nie udało się zapisać wydarzenia");
+				console.error("Błąd podczas zapisywania wydarzenia:", result.error);
+				Alert.alert("Błąd", "Nie udało się zapisać wydarzenia: " + (result.error.message || "Nieznany błąd"));
 				return;
 			}
 
-			// Zaplanuj powiadomienia
-			if (result.data) {
-				await scheduleEventNotifications(result.data);
+			console.log("Wydarzenie zapisane pomyślnie:", result.data);
+
+			// Zaplanuj powiadomienia tylko jeśli wydarzenie zostało pomyślnie utworzone
+			if (result.data && result.data.id) {
+				try {
+					await scheduleEventNotifications(result.data);
+					console.log("Powiadomienia zaplanowane pomyślnie");
+				} catch (notificationError) {
+					console.error("Błąd podczas planowania powiadomień:", notificationError);
+					// Nie przerywamy procesu, jeśli powiadomienia nie mogą być zaplanowane
+				}
 			}
 
 			Alert.alert("Dodano", "Wydarzenie zostało dodane", [
@@ -114,7 +104,7 @@ export default function EventFormScreen() {
 			]);
 		} catch (error) {
 			console.error("Błąd podczas zapisywania wydarzenia:", error);
-			Alert.alert("Błąd", "Wystąpił nieoczekiwany błąd");
+			Alert.alert("Błąd", "Wystąpił nieoczekiwany błąd: " + (error instanceof Error ? error.message : "Nieznany błąd"));
 		} finally {
 			setLoading(false);
 		}
@@ -174,15 +164,17 @@ export default function EventFormScreen() {
 	// Dodajemy brakujące właściwości do obiektu colors
 	const extendedColors = {
 		...colors,
-		border: colors.icon,
-		card: colors.background,
+		border: colors.border || colors.icon,
+		card: colors.card || colors.background,
+		inputText: colors.inputText || colors.text,
+		inputBackground: colors.inputBackground || colors.background,
 	};
 
 	return (
 		<KeyboardAvoidingView
 			style={[
 				styles.container,
-				{ backgroundColor: extendedColors.background },
+				{ backgroundColor: isDark ? '#000000' : colors.background }
 			]}
 			behavior={Platform.OS === "ios" ? "padding" : "height"}
 			keyboardVerticalOffset={100}
@@ -196,11 +188,11 @@ export default function EventFormScreen() {
 						<Ionicons
 							name="arrow-back"
 							size={24}
-							color={extendedColors.text}
+							color={colors.text}
 						/>
 					</TouchableOpacity>
 					<Text
-						style={[styles.title, { color: extendedColors.text }]}
+						style={[styles.title, { color: colors.text }]}
 					>
 						Dodaj wydarzenie
 					</Text>
@@ -209,61 +201,46 @@ export default function EventFormScreen() {
 
 				<View style={styles.formContainer}>
 					<View style={styles.inputContainer}>
-						<Text
-							style={[
-								styles.label,
-								{ color: extendedColors.text },
-							]}
-						>
+						<Text style={[styles.label, { color: colors.text }]}>
 							Tytuł
 						</Text>
 						<TextInput
 							style={[
 								styles.input,
 								{
-									color: extendedColors.text,
-									borderColor: extendedColors.border,
-									backgroundColor: extendedColors.card,
+									backgroundColor: isDark ? '#1a1a1a' : colors.background,
+									color: colors.text,
+									borderColor: isDark ? '#333' : colors.icon,
 								},
 							]}
 							value={title}
 							onChangeText={setTitle}
-							placeholder="Podaj tytuł wydarzenia"
-							placeholderTextColor={extendedColors.text + "80"}
+							placeholder="Nazwa wydarzenia"
+							placeholderTextColor={isDark ? '#666' : colors.icon}
 						/>
 					</View>
 
 					<View style={styles.inputContainer}>
-						<Text
-							style={[
-								styles.label,
-								{ color: extendedColors.text },
-							]}
-						>
+						<Text style={[styles.label, { color: colors.text }]}>
 							Data
 						</Text>
 						<TouchableOpacity
 							style={[
 								styles.dateInput,
 								{
-									borderColor: extendedColors.border,
-									backgroundColor: extendedColors.card,
+									backgroundColor: isDark ? '#1a1a1a' : colors.background,
+									borderColor: isDark ? '#333' : colors.icon,
 								},
 							]}
 							onPress={() => setShowDatePicker(true)}
 						>
-							<Text
-								style={[
-									styles.dateText,
-									{ color: extendedColors.text },
-								]}
-							>
+							<Text style={{ color: colors.text }}>
 								{formatDisplayDate(date)}
 							</Text>
 							<Ionicons
 								name="calendar"
-								size={24}
-								color={extendedColors.text}
+								size={20}
+								color={isDark ? '#666' : colors.icon}
 							/>
 						</TouchableOpacity>
 						{showDatePicker && (
@@ -277,41 +254,31 @@ export default function EventFormScreen() {
 					</View>
 
 					<View style={styles.inputContainer}>
-						<Text
-							style={[
-								styles.label,
-								{ color: extendedColors.text },
-							]}
-						>
+						<Text style={[styles.label, { color: colors.text }]}>
 							Godzina
 						</Text>
 						<TouchableOpacity
 							style={[
 								styles.dateInput,
 								{
-									borderColor: extendedColors.border,
-									backgroundColor: extendedColors.card,
+									backgroundColor: isDark ? '#1a1a1a' : colors.background,
+									borderColor: isDark ? '#333' : colors.icon,
 								},
 							]}
 							onPress={() => setShowTimePicker(true)}
 						>
-							<Text
-								style={[
-									styles.dateText,
-									{ color: extendedColors.text },
-								]}
-							>
-								{formatDisplayTime(time)}
+							<Text style={{ color: colors.text }}>
+								{time ? format(time, "HH:mm") : "Wybierz godzinę"}
 							</Text>
 							<Ionicons
 								name="time"
-								size={24}
-								color={extendedColors.text}
+								size={20}
+								color={isDark ? '#666' : colors.icon}
 							/>
 						</TouchableOpacity>
 						{showTimePicker && (
 							<DateTimePicker
-								value={time}
+								value={time || new Date()}
 								mode="time"
 								display="default"
 								onChange={handleTimeChange}
@@ -320,125 +287,38 @@ export default function EventFormScreen() {
 					</View>
 
 					<View style={styles.inputContainer}>
-						<Text
-							style={[
-								styles.label,
-								{ color: extendedColors.text },
-							]}
-						>
-							Lokalizacja (opcjonalnie)
-						</Text>
-						<TextInput
-							style={[
-								styles.input,
-								{
-									color: extendedColors.text,
-									borderColor: extendedColors.border,
-									backgroundColor: extendedColors.card,
-								},
-							]}
-							value={location}
-							onChangeText={setLocation}
-							placeholder="Podaj lokalizację"
-							placeholderTextColor={extendedColors.text + "80"}
-						/>
-					</View>
-
-					<View style={styles.inputContainer}>
-						<Text
-							style={[
-								styles.label,
-								{ color: extendedColors.text },
-							]}
-						>
+						<Text style={[styles.label, { color: colors.text }]}>
 							Opis (opcjonalnie)
 						</Text>
 						<TextInput
 							style={[
+								styles.input,
 								styles.textArea,
 								{
-									color: extendedColors.text,
-									borderColor: extendedColors.border,
-									backgroundColor: extendedColors.card,
+									backgroundColor: isDark ? '#1a1a1a' : colors.background,
+									color: colors.text,
+									borderColor: isDark ? '#333' : colors.icon,
 								},
 							]}
 							value={description}
 							onChangeText={setDescription}
-							placeholder="Dodaj opis wydarzenia"
-							placeholderTextColor={extendedColors.text + "80"}
+							placeholder="Dodatkowe informacje"
+							placeholderTextColor={isDark ? '#666' : colors.icon}
 							multiline
 							numberOfLines={4}
 							textAlignVertical="top"
 						/>
 					</View>
 
-					<View style={styles.imageContainer}>
-						<Text
-							style={[
-								styles.label,
-								{ color: extendedColors.text },
-							]}
-						>
-							Zdjęcie (opcjonalnie)
-						</Text>
-						{imageUri ? (
-							<View style={styles.imagePreviewContainer}>
-								<Image
-									source={{ uri: imageUri }}
-									style={styles.imagePreview}
-								/>
-								<TouchableOpacity
-									style={styles.changeImageButton}
-									onPress={pickImage}
-								>
-									<Text
-										style={[
-											styles.changeImageText,
-											{ color: extendedColors.tint },
-										]}
-									>
-										Zmień zdjęcie
-									</Text>
-								</TouchableOpacity>
-							</View>
-						) : (
-							<TouchableOpacity
-								style={[
-									styles.imagePicker,
-									{
-										borderColor: extendedColors.border,
-										backgroundColor: extendedColors.card,
-									},
-								]}
-								onPress={pickImage}
-							>
-								<Ionicons
-									name="image"
-									size={32}
-									color={extendedColors.text}
-								/>
-								<Text
-									style={[
-										styles.imagePickerText,
-										{ color: extendedColors.text },
-									]}
-								>
-									Wybierz zdjęcie
-								</Text>
-							</TouchableOpacity>
-						)}
-					</View>
-
 					<TouchableOpacity
 						style={[
-							styles.saveButton,
-							{ backgroundColor: extendedColors.tint },
-							loading && styles.disabledButton,
+							styles.button,
+							{ backgroundColor: colors.tint },
 						]}
 						onPress={handleSave}
 						disabled={loading}
 					>
-						<Text style={styles.saveButtonText}>
+						<Text style={styles.buttonText}>
 							{loading ? "Zapisywanie..." : "Zapisz"}
 						</Text>
 					</TouchableOpacity>
@@ -538,14 +418,14 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		fontWeight: "500",
 	},
-	saveButton: {
+	button: {
 		borderRadius: 8,
 		padding: 16,
 		alignItems: "center",
 		marginTop: 16,
 	},
-	saveButtonText: {
-		color: "white",
+	buttonText: {
+		color: '#FFFFFF',
 		fontSize: 16,
 		fontWeight: "bold",
 	},

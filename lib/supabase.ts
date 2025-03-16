@@ -13,4 +13,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  global: {
+    // Dodajemy obsługę błędów
+    fetch: (...args) => {
+      return fetch(...args).catch(error => {
+        console.error('Błąd połączenia z Supabase:', error);
+        throw error;
+      });
+    }
+  }
 }); 

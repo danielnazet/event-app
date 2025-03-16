@@ -52,6 +52,15 @@ const TabLayout = memo(function TabLayout() {
 				}}
 			/>
 			<Tabs.Screen
+				name="party"
+				options={{
+					title: "Party",
+					tabBarIcon: ({ color, size }) => (
+						<Ionicons name="people" size={size} color={color} />
+					),
+				}}
+			/>
+			<Tabs.Screen
 				name="profile"
 				options={{
 					title: "Profile",

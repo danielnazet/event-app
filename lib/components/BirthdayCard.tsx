@@ -4,22 +4,31 @@ import { Birthday } from "../types";
 import { formatBirthdayDate } from "../services/notificationService";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { Colors } from "@/constants/Colors";
+import { Ionicons } from "@expo/vector-icons";
 
 type BirthdayCardProps = {
 	birthday: Birthday;
 	onPress: (birthday: Birthday) => void;
+	isDark?: boolean;
 };
 
 export const BirthdayCard: React.FC<BirthdayCardProps> = ({
 	birthday,
 	onPress,
+	isDark,
 }) => {
 	const colorScheme = useColorScheme();
 	const colors = Colors[colorScheme ?? "light"];
 
 	return (
 		<TouchableOpacity
-			style={[styles.container, { backgroundColor: colors.background }]}
+			style={[
+				styles.container,
+				{
+					backgroundColor: isDark ? '#1a1a1a' : colors.background,
+					borderColor: isDark ? '#333' : '#eee',
+				}
+			]}
 			onPress={() => onPress(birthday)}
 		>
 			<View style={styles.content}>
@@ -33,30 +42,27 @@ export const BirthdayCard: React.FC<BirthdayCardProps> = ({
 						<View
 							style={[
 								styles.placeholderImage,
-								{ backgroundColor: colors.icon },
+								{ backgroundColor: isDark ? '#333' : '#666' },
 							]}
 						>
-							<Text
-								style={[
-									styles.placeholderText,
-									{ color: colors.background },
-								]}
-							>
-								{birthday.person_name.charAt(0).toUpperCase()}
-							</Text>
+							<Ionicons
+								name="person"
+								size={24}
+								color={isDark ? '#666' : '#fff'}
+							/>
 						</View>
 					)}
 				</View>
 				<View style={styles.textContainer}>
-					<Text style={[styles.name, { color: colors.text }]}>
+					<Text style={[styles.name, { color: isDark ? '#fff' : colors.text }]}>
 						{birthday.person_name}
 					</Text>
-					<Text style={[styles.date, { color: colors.icon }]}>
+					<Text style={[styles.date, { color: isDark ? '#aaa' : colors.icon }]}>
 						{formatBirthdayDate(birthday.date)}
 					</Text>
 					{birthday.notes && (
 						<Text
-							style={[styles.notes, { color: colors.icon }]}
+							style={[styles.notes, { color: isDark ? '#aaa' : colors.icon }]}
 							numberOfLines={2}
 						>
 							{birthday.notes}
@@ -70,8 +76,9 @@ export const BirthdayCard: React.FC<BirthdayCardProps> = ({
 
 const styles = StyleSheet.create({
 	container: {
-		borderRadius: 12,
-		marginBottom: 16,
+		borderWidth: 1,
+		borderRadius: 8,
+		marginBottom: 10,
 		padding: 16,
 		shadowColor: "#000",
 		shadowOffset: { width: 0, height: 2 },
@@ -97,10 +104,6 @@ const styles = StyleSheet.create({
 		borderRadius: 30,
 		justifyContent: "center",
 		alignItems: "center",
-	},
-	placeholderText: {
-		fontSize: 24,
-		fontWeight: "bold",
 	},
 	textContainer: {
 		flex: 1,

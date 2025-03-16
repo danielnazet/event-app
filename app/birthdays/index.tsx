@@ -7,6 +7,8 @@ import {
 	TouchableOpacity,
 	ActivityIndicator,
 	SafeAreaView,
+	ScrollView,
+	Image,
 } from "react-native";
 import { useAuth } from "../../lib/context/AuthContext";
 import { router, Redirect } from "expo-router";
@@ -14,9 +16,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { Birthday } from "../../lib/types";
 import { getBirthdays } from "../../lib/services/birthdayService";
 import { BirthdayCard } from "../../lib/components/BirthdayCard";
+import { useColorScheme } from "react-native";
+import { Colors } from "../../lib/constants/Colors";
+import { formatBirthdayDate } from "../../lib/utils/dateUtils";
 
 export default function BirthdaysScreen() {
 	const { user, loading } = useAuth();
+	const colorScheme = useColorScheme();
+	const isDark = colorScheme === 'dark';
+	const colors = Colors[colorScheme ?? "light"];
 	const [birthdays, setBirthdays] = useState<Birthday[]>([]);
 	const [loadingData, setLoadingData] = useState(true);
 
@@ -56,43 +64,35 @@ export default function BirthdaysScreen() {
 
 	// Renderuj komponent tylko raz, używając useMemo
 	const content = useMemo(() => {
-		// Jeśli użytkownik nie jest zalogowany i zakończono ładowanie, przekieruj do ekranu logowania
 		if (!user && !loading) {
 			return <Redirect href="/(auth)/login" />;
 		}
 
-		// Podczas ładowania pokaż wskaźnik aktywności
 		if (loading) {
 			return (
-				<View style={styles.container}>
-					<ActivityIndicator size="large" color="#0000ff" />
-					<Text style={styles.text}>Ładowanie...</Text>
+				<View style={[styles.container, { backgroundColor: isDark ? '#000000' : colors.background }]}>
+					<ActivityIndicator size="large" color={colors.tint} />
+					<Text style={[styles.text, { color: colors.text }]}>Ładowanie...</Text>
 				</View>
 			);
 		}
 
 		return (
-			<SafeAreaView style={styles.container}>
-				<View style={styles.header}>
-					<TouchableOpacity
-						style={styles.backButton}
-						onPress={() => router.back()}
-					>
-						<Ionicons name="arrow-back" size={24} color="#333" />
-					</TouchableOpacity>
-					<Text style={styles.title}>Urodziny</Text>
+			<SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#000000' : colors.background }]}>
+				<View style={[styles.header, { backgroundColor: isDark ? '#1a1a1a' : '#FFF', borderBottomColor: isDark ? '#333' : '#EEE' }]}>
+					<Text style={[styles.title, { color: colors.text }]}>Urodziny</Text>
 					<TouchableOpacity
 						style={styles.addButton}
 						onPress={() => router.push("/birthdays/new")}
 					>
-						<Ionicons name="add" size={24} color="#333" />
+						<Ionicons name="add" size={24} color={colors.text} />
 					</TouchableOpacity>
 				</View>
 
 				{loadingData ? (
 					<View style={styles.loadingContainer}>
-						<ActivityIndicator size="large" color="#0000ff" />
-						<Text style={styles.text}>Ładowanie...</Text>
+						<ActivityIndicator size="large" color={colors.tint} />
+						<Text style={[styles.text, { color: colors.text }]}>Ładowanie...</Text>
 					</View>
 				) : (
 					<FlatList
@@ -102,19 +102,18 @@ export default function BirthdaysScreen() {
 							<BirthdayCard
 								birthday={item}
 								onPress={handleBirthdayPress}
+								isDark={isDark}
 							/>
 						)}
 						contentContainerStyle={styles.listContent}
 						ListEmptyComponent={
 							<View style={styles.emptyContainer}>
-								<Text style={styles.emptyText}>
+								<Text style={[styles.emptyText, { color: colors.text }]}>
 									Nie masz jeszcze żadnych urodzin
 								</Text>
 								<TouchableOpacity
-									style={styles.emptyButton}
-									onPress={() =>
-										router.push("/birthdays/new")
-									}
+									style={[styles.emptyButton, { backgroundColor: colors.tint }]}
+									onPress={() => router.push("/birthdays/new")}
 								>
 									<Text style={styles.emptyButtonText}>
 										Dodaj urodziny
@@ -126,7 +125,7 @@ export default function BirthdaysScreen() {
 				)}
 			</SafeAreaView>
 		);
-	}, [user, loading, loadingData, birthdays, handleBirthdayPress]);
+	}, [user, loading, loadingData, birthdays, handleBirthdayPress, isDark, colors]);
 
 	return content;
 }
@@ -134,27 +133,20 @@ export default function BirthdaysScreen() {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: "#F7F7F7",
 	},
 	header: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
 		padding: 15,
-		backgroundColor: "#FFF",
 		borderBottomWidth: 1,
-		borderBottomColor: "#EEE",
-	},
-	backButton: {
-		padding: 5,
 	},
 	title: {
 		fontSize: 20,
 		fontWeight: "bold",
-		color: "#333",
 	},
 	addButton: {
-		padding: 5,
+		padding: 8,
 	},
 	loadingContainer: {
 		flex: 1,
@@ -172,23 +164,20 @@ const styles = StyleSheet.create({
 	},
 	emptyText: {
 		fontSize: 16,
-		color: "#666",
 		marginBottom: 20,
 		textAlign: "center",
 	},
 	emptyButton: {
-		backgroundColor: "#FF6B6B",
 		paddingVertical: 10,
 		paddingHorizontal: 20,
 		borderRadius: 5,
 	},
 	emptyButtonText: {
-		color: "#FFF",
+		color: "black",
 		fontWeight: "bold",
 	},
 	text: {
 		marginTop: 10,
 		fontSize: 16,
-		color: "#333",
 	},
 });

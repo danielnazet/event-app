@@ -1,9 +1,9 @@
-import { Redirect } from "expo-router";
 import React, { memo } from "react";
+import EventsScreen from "../events/index";
 
 // Używamy memo, aby zapobiec niepotrzebnym renderowaniom
 const EventsTab = memo(function EventsTab() {
-	return <Redirect href="/events" />;
+	return <EventsScreen />;
 });
 
 export default EventsTab;

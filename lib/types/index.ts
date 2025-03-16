@@ -25,7 +25,7 @@ export type Event = {
   title: string;
   description?: string;
   date: string; // Format: YYYY-MM-DD
-  time?: string; // Format: HH:MM
+  time?: string; // Format: HH:mm
   location?: string;
   image_url?: string;
   created_at: string;

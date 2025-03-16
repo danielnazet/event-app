@@ -114,19 +114,35 @@ export default function ProfileScreen() {
 				const response = await fetch(uri);
 				const blob = await response.blob();
 
+				// Sprawdź czy blob nie jest pusty
+				if (blob.size === 0) {
+					throw new Error("Nie udało się przetworzyć zdjęcia");
+				}
+
 				// Prześlij plik do Supabase Storage
 				const { error: uploadError } = await supabase.storage
-					.from("avatars")
-					.upload(filePath, blob);
+					.from("profile-avatars")
+					.upload(filePath, blob, {
+						contentType: `image/${fileExt}`,
+						cacheControl: '3600',
+						upsert: true
+					});
 
 				if (uploadError) {
+					console.error("Błąd uploadu:", uploadError);
 					throw uploadError;
 				}
 
 				// Pobierz publiczny URL
 				const { data } = supabase.storage
-					.from("avatars")
+					.from("profile-avatars")
 					.getPublicUrl(filePath);
+
+				if (!data?.publicUrl) {
+					throw new Error("Nie udało się pobrać URL-a zdjęcia");
+				}
+
+				console.log("Upload URL:", data.publicUrl);
 
 				// Zaktualizuj profil użytkownika
 				const { error } = await updateProfile({
@@ -142,11 +158,11 @@ export default function ProfileScreen() {
 					"Zdjęcie profilowe zostało zaktualizowane"
 				);
 			} catch (error) {
+				console.error("Błąd podczas uploadu:", error);
 				Alert.alert(
 					"Błąd",
 					"Nie udało się zaktualizować zdjęcia profilowego"
 				);
-				console.error(error);
 			} finally {
 				setUploadingImage(false);
 			}
@@ -215,10 +231,13 @@ export default function ProfileScreen() {
 							/>
 						</View>
 					) : user.avatar_url ? (
-						<Image
-							source={{ uri: user.avatar_url }}
-							style={styles.avatar}
-						/>
+						<View style={[styles.avatar, { backgroundColor: colors.card }]}>
+							<Image
+								source={{ uri: user.avatar_url }}
+								style={styles.avatarImage}
+								resizeMode="cover"
+							/>
+						</View>
 					) : (
 						<View
 							style={[
@@ -457,6 +476,19 @@ const styles = StyleSheet.create({
 		borderRadius: 60,
 		justifyContent: "center",
 		alignItems: "center",
+		overflow: 'hidden',
+		elevation: 3,
+		shadowColor: '#000',
+		shadowOffset: {
+			width: 0,
+			height: 2,
+		},
+		shadowOpacity: 0.25,
+		shadowRadius: 3.84,
+	},
+	avatarImage: {
+		width: '100%',
+		height: '100%',
 	},
 	avatarText: {
 		fontSize: 36,
@@ -497,7 +529,7 @@ const styles = StyleSheet.create({
 		marginTop: 24,
 	},
 	editButtonText: {
-		color: "white",
+		color: "black",
 		fontSize: 16,
 		fontWeight: "600",
 	},
@@ -527,7 +559,7 @@ const styles = StyleSheet.create({
 		marginBottom: 16,
 	},
 	buttonText: {
-		color: "white",
+		color: "black",
 		fontSize: 16,
 		fontWeight: "600",
 	},

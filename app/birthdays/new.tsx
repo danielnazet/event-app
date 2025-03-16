@@ -33,6 +33,7 @@ export default function BirthdayFormScreen() {
 	const { id } = useLocalSearchParams<{ id: string }>();
 	const { user } = useAuth();
 	const colorScheme = useColorScheme();
+	const isDark = colorScheme === 'dark';
 	const colors = Colors[colorScheme ?? "light"];
 	const isEditing = !!id;
 
@@ -179,7 +180,10 @@ export default function BirthdayFormScreen() {
 
 	return (
 		<KeyboardAvoidingView
-			style={[styles.container, { backgroundColor: colors.background }]}
+			style={[
+				styles.container,
+				{ backgroundColor: isDark ? '#000000' : colors.background }
+			]}
 			behavior={Platform.OS === "ios" ? "padding" : "height"}
 			keyboardVerticalOffset={100}
 		>
@@ -195,10 +199,6 @@ export default function BirthdayFormScreen() {
 							color={colors.text}
 						/>
 					</TouchableOpacity>
-					<Text style={[styles.title, { color: colors.text }]}>
-						{isEditing ? "Edytuj urodziny" : "Dodaj urodziny"}
-					</Text>
-					<View style={styles.placeholder} />
 				</View>
 
 				<View style={styles.formContainer}>
@@ -215,18 +215,18 @@ export default function BirthdayFormScreen() {
 							<View
 								style={[
 									styles.imagePlaceholder,
-									{ backgroundColor: colors.icon },
+									{ backgroundColor: isDark ? '#333' : colors.icon },
 								]}
 							>
 								<Ionicons
 									name="camera"
 									size={40}
-									color={colors.background}
+									color={isDark ? '#fff' : colors.background}
 								/>
 								<Text
 									style={[
 										styles.imagePlaceholderText,
-										{ color: colors.background },
+										{ color: isDark ? '#fff' : colors.background },
 									]}
 								>
 									Dodaj zdjęcie
@@ -243,15 +243,15 @@ export default function BirthdayFormScreen() {
 							style={[
 								styles.input,
 								{
-									backgroundColor: colors.background,
+									backgroundColor: isDark ? '#1a1a1a' : colors.background,
 									color: colors.text,
-									borderColor: colors.icon,
+									borderColor: isDark ? '#333' : colors.icon,
 								},
 							]}
 							value={personName}
 							onChangeText={setPersonName}
 							placeholder="Imię osoby"
-							placeholderTextColor={colors.icon}
+							placeholderTextColor={isDark ? '#666' : colors.icon}
 						/>
 					</View>
 
@@ -263,8 +263,8 @@ export default function BirthdayFormScreen() {
 							style={[
 								styles.dateInput,
 								{
-									backgroundColor: colors.background,
-									borderColor: colors.icon,
+									backgroundColor: isDark ? '#1a1a1a' : colors.background,
+									borderColor: isDark ? '#333' : colors.icon,
 								},
 							]}
 							onPress={() => setShowDatePicker(true)}
@@ -275,7 +275,7 @@ export default function BirthdayFormScreen() {
 							<Ionicons
 								name="calendar"
 								size={20}
-								color={colors.icon}
+								color={isDark ? '#666' : colors.icon}
 							/>
 						</TouchableOpacity>
 						{showDatePicker && (
@@ -297,15 +297,15 @@ export default function BirthdayFormScreen() {
 								styles.input,
 								styles.textArea,
 								{
-									backgroundColor: colors.background,
+									backgroundColor: isDark ? '#1a1a1a' : colors.background,
 									color: colors.text,
-									borderColor: colors.icon,
+									borderColor: isDark ? '#333' : colors.icon,
 								},
 							]}
 							value={notes}
 							onChangeText={setNotes}
 							placeholder="Dodatkowe informacje"
-							placeholderTextColor={colors.icon}
+							placeholderTextColor={isDark ? '#666' : colors.icon}
 							multiline
 							numberOfLines={4}
 							textAlignVertical="top"
@@ -336,27 +336,21 @@ const styles = StyleSheet.create({
 	},
 	scrollContent: {
 		flexGrow: 1,
+		padding: 20,
 	},
 	header: {
 		flexDirection: "row",
-		justifyContent: "space-between",
 		alignItems: "center",
-		paddingHorizontal: 16,
-		paddingTop: 16,
-		paddingBottom: 8,
+		marginBottom: 16,
+		marginTop: -10,
 	},
 	backButton: {
 		padding: 8,
-	},
-	title: {
-		fontSize: 20,
-		fontWeight: "bold",
-	},
-	placeholder: {
-		width: 40,
+		marginLeft: -8,
 	},
 	formContainer: {
-		padding: 16,
+		flex: 1,
+		width: '100%',
 	},
 	imageContainer: {
 		alignItems: "center",
@@ -415,7 +409,7 @@ const styles = StyleSheet.create({
 		marginTop: 24,
 	},
 	buttonText: {
-		color: "white",
+		color: "black",
 		fontSize: 16,
 		fontWeight: "600",
 	},

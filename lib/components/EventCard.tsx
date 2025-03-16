@@ -6,24 +6,27 @@ import { pl } from "date-fns/locale";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { Colors } from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
+import { formatEventDate } from "../utils/dateUtils";
 
 type EventCardProps = {
 	event: Event;
 	onPress: (event: Event) => void;
+	isDark?: boolean;
 };
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
+export const EventCard: React.FC<EventCardProps> = ({ event, onPress, isDark }) => {
 	const colorScheme = useColorScheme();
 	const colors = Colors[colorScheme ?? "light"];
 
-	const formatEventDate = (dateString: string): string => {
-		const date = parseISO(dateString);
-		return format(date, "d MMMM yyyy", { locale: pl });
-	};
-
 	return (
 		<TouchableOpacity
-			style={[styles.container, { backgroundColor: colors.background }]}
+			style={[
+				styles.container,
+				{
+					backgroundColor: isDark ? '#1a1a1a' : colors.background,
+					borderColor: isDark ? '#333' : '#eee',
+				}
+			]}
 			onPress={() => onPress(event)}
 		>
 			<View style={styles.content}>
@@ -33,16 +36,14 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => {
 						style={styles.image}
 					/>
 				) : (
-					<View
-						style={[
-							styles.placeholderImage,
-							{ backgroundColor: colors.icon },
-						]}
-					>
+					<View style={[
+						styles.placeholderImage,
+						{ backgroundColor: isDark ? '#333' : '#666' }
+					]}>
 						<Ionicons
-							name="paper-plane"
+							name="calendar"
 							size={24}
-							color={colors.background}
+							color={isDark ? '#666' : '#fff'}
 						/>
 					</View>
 				)}
