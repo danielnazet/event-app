@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from 'react';
 import {
 	View,
 	Text,
@@ -6,276 +6,248 @@ import {
 	TextInput,
 	TouchableOpacity,
 	ScrollView,
-	ActivityIndicator,
 	Alert,
-	Platform,
-} from "react-native";
-import { useAuth } from "../../lib/context/AuthContext";
-import { router, Redirect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "@/constants/Colors";
-import { useColorScheme } from "@/hooks/useColorScheme";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { format } from "date-fns";
-import { pl } from "date-fns/locale";
+	ActivityIndicator,
+} from 'react-native';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { Colors } from '@/constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/context/AuthContext';
+import { router } from 'expo-router';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function NewPartyScreen() {
-	const { user, loading } = useAuth();
+	const { user } = useAuth();
 	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? "light"];
-	
-	const [title, setTitle] = useState("");
-	const [description, setDescription] = useState("");
-	const [location, setLocation] = useState("");
+	const colors = Colors[colorScheme ?? 'light'];
+
+	const [name, setName] = useState('');
+	const [description, setDescription] = useState('');
 	const [date, setDate] = useState(new Date());
-	const [time, setTime] = useState(new Date());
-	const [maxParticipants, setMaxParticipants] = useState("");
 	const [showDatePicker, setShowDatePicker] = useState(false);
-	const [showTimePicker, setShowTimePicker] = useState(false);
-	const [isSaving, setIsSaving] = useState(false);
+	const [loading, setLoading] = useState(false);
 
-	const handleSave = async () => {
+	const handleCreateGroup = async () => {
+		if (!name.trim()) {
+			Alert.alert('Błąd', 'Nazwa grupy jest wymagana');
+			return;
+		}
+
 		if (!user) {
-			Alert.alert("Błąd", "Musisz być zalogowany");
+			Alert.alert('Błąd', 'Musisz być zalogowany, aby utworzyć grupę');
 			return;
 		}
 
-		if (!title) {
-			Alert.alert("Błąd", "Tytuł jest wymagany");
-			return;
-		}
-
-		setIsSaving(true);
+		setLoading(true);
 		try {
-			// Tutaj będzie kod do zapisywania imprezy w bazie danych
-			// Na razie tylko symulujemy zapisywanie
-			await new Promise(resolve => setTimeout(resolve, 1000));
-			
-			Alert.alert(
-				"Sukces",
-				"Impreza została dodana",
-				[{ text: "OK", onPress: () => router.back() }]
-			);
+			const { data, error } = await supabase
+				.from('party_groups')
+				.insert([
+					{
+						name: name.trim(),
+						description: description.trim() || null,
+						date: date.toISOString().split('T')[0],
+						status: 'planning',
+						created_by: user.id,
+					},
+				])
+				.select()
+				.single();
+
+			if (error) throw error;
+
+			// Dodaj twórcę jako administratora grupy
+			const { error: memberError } = await supabase
+				.from('party_members')
+				.insert([
+					{
+						party_group_id: data.id,
+						user_id: user.id,
+						role: 'admin',
+						status: 'accepted',
+					},
+				]);
+
+			if (memberError) throw memberError;
+
+			Alert.alert('Sukces', 'Grupa została utworzona');
+			router.back();
 		} catch (error) {
-			console.error("Błąd podczas zapisywania imprezy:", error);
-			Alert.alert("Błąd", "Wystąpił nieoczekiwany błąd");
+			console.error('Błąd podczas tworzenia grupy:', error);
+			Alert.alert('Błąd', 'Nie udało się utworzyć grupy');
 		} finally {
-			setIsSaving(false);
+			setLoading(false);
 		}
 	};
 
 	const onDateChange = (event: any, selectedDate?: Date) => {
-		const currentDate = selectedDate || date;
-		setShowDatePicker(Platform.OS === "ios");
-		setDate(currentDate);
+		setShowDatePicker(false);
+		if (selectedDate) {
+			setDate(selectedDate);
+		}
 	};
 
-	const onTimeChange = (event: any, selectedTime?: Date) => {
-		const currentTime = selectedTime || time;
-		setShowTimePicker(Platform.OS === "ios");
-		setTime(currentTime);
-	};
+	return (
+		<ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+			<View style={styles.header}>
+				<TouchableOpacity
+					style={styles.backButton}
+					onPress={() => router.back()}
+				>
+					<Ionicons name="arrow-back" size={24} color={colors.text} />
+				</TouchableOpacity>
+				<Text style={[styles.title, { color: colors.text }]}>Nowa grupa</Text>
+			</View>
 
-	// Renderuj komponent tylko raz, używając useMemo
-	const content = useMemo(() => {
-		// Jeśli użytkownik nie jest zalogowany i zakończono ładowanie, przekieruj do ekranu logowania
-		if (!user && !loading) {
-			return <Redirect href="/(auth)/login" />;
-		}
-
-		// Podczas ładowania pokaż wskaźnik aktywności
-		if (loading) {
-			return (
-				<View style={styles.container}>
-					<ActivityIndicator size="large" color={colors.tint} />
-					<Text style={[styles.text, { color: colors.text }]}>Ładowanie...</Text>
-				</View>
-			);
-		}
-
-		return (
-			<ScrollView 
-				style={[styles.container, { backgroundColor: colors.background }]}
-				contentContainerStyle={styles.contentContainer}
-			>
-				<View style={styles.formGroup}>
-					<Text style={[styles.label, { color: colors.text }]}>Tytuł</Text>
+			<View style={styles.form}>
+				<View style={styles.inputContainer}>
+					<Text style={[styles.label, { color: colors.text }]}>Nazwa grupy</Text>
 					<TextInput
 						style={[
 							styles.input,
-							{ backgroundColor: colors.card, color: colors.text },
+							{
+								backgroundColor: colors.background,
+								color: colors.text,
+								borderColor: colors.border,
+							},
 						]}
-						value={title}
-						onChangeText={setTitle}
-						placeholder="Nazwa imprezy"
-						placeholderTextColor={colors.text + "80"}
+						value={name}
+						onChangeText={setName}
+						placeholder="Wprowadź nazwę grupy"
+						placeholderTextColor={colors.icon}
 					/>
 				</View>
 
-				<View style={styles.formGroup}>
+				<View style={styles.inputContainer}>
 					<Text style={[styles.label, { color: colors.text }]}>Opis</Text>
 					<TextInput
 						style={[
 							styles.input,
 							styles.textArea,
-							{ backgroundColor: colors.card, color: colors.text },
+							{
+								backgroundColor: colors.background,
+								color: colors.text,
+								borderColor: colors.border,
+							},
 						]}
 						value={description}
 						onChangeText={setDescription}
-						placeholder="Opis imprezy"
-						placeholderTextColor={colors.text + "80"}
+						placeholder="Wprowadź opis grupy (opcjonalnie)"
+						placeholderTextColor={colors.icon}
 						multiline
 						numberOfLines={4}
 					/>
 				</View>
 
-				<View style={styles.formGroup}>
-					<Text style={[styles.label, { color: colors.text }]}>Lokalizacja</Text>
-					<TextInput
-						style={[
-							styles.input,
-							{ backgroundColor: colors.card, color: colors.text },
-						]}
-						value={location}
-						onChangeText={setLocation}
-						placeholder="Adres imprezy"
-						placeholderTextColor={colors.text + "80"}
-					/>
-				</View>
-
-				<View style={styles.formGroup}>
-					<Text style={[styles.label, { color: colors.text }]}>Data</Text>
+				<View style={styles.inputContainer}>
+					<Text style={[styles.label, { color: colors.text }]}>Data spotkania</Text>
 					<TouchableOpacity
 						style={[
-							styles.input,
-							{ backgroundColor: colors.card, flexDirection: "row", alignItems: "center" },
+							styles.dateButton,
+							{
+								backgroundColor: colors.background,
+								borderColor: colors.border,
+							},
 						]}
 						onPress={() => setShowDatePicker(true)}
 					>
-						<Text style={{ color: colors.text }}>
-							{format(date, "dd MMMM yyyy", { locale: pl })}
+						<Text style={[styles.dateText, { color: colors.text }]}>
+							{date.toLocaleDateString('pl-PL')}
 						</Text>
-						<Ionicons name="calendar" size={20} color={colors.text} style={{ marginLeft: 10 }} />
+						<Ionicons name="calendar-outline" size={20} color={colors.icon} />
 					</TouchableOpacity>
-					{showDatePicker && (
-						<DateTimePicker
-							value={date}
-							mode="date"
-							display="default"
-							onChange={onDateChange}
-						/>
-					)}
 				</View>
 
-				<View style={styles.formGroup}>
-					<Text style={[styles.label, { color: colors.text }]}>Godzina</Text>
-					<TouchableOpacity
-						style={[
-							styles.input,
-							{ backgroundColor: colors.card, flexDirection: "row", alignItems: "center" },
-						]}
-						onPress={() => setShowTimePicker(true)}
-					>
-						<Text style={{ color: colors.text }}>
-							{format(time, "HH:mm")}
-						</Text>
-						<Ionicons name="time" size={20} color={colors.text} style={{ marginLeft: 10 }} />
-					</TouchableOpacity>
-					{showTimePicker && (
-						<DateTimePicker
-							value={time}
-							mode="time"
-							display="default"
-							onChange={onTimeChange}
-						/>
-					)}
-				</View>
-
-				<View style={styles.formGroup}>
-					<Text style={[styles.label, { color: colors.text }]}>Maksymalna liczba uczestników</Text>
-					<TextInput
-						style={[
-							styles.input,
-							{ backgroundColor: colors.card, color: colors.text },
-						]}
-						value={maxParticipants}
-						onChangeText={setMaxParticipants}
-						placeholder="Liczba uczestników"
-						placeholderTextColor={colors.text + "80"}
-						keyboardType="number-pad"
+				{showDatePicker && (
+					<DateTimePicker
+						value={date}
+						mode="date"
+						display="default"
+						onChange={onDateChange}
+						minimumDate={new Date()}
 					/>
-				</View>
+				)}
 
 				<TouchableOpacity
-					style={[styles.saveButton, { backgroundColor: colors.tint }]}
-					onPress={handleSave}
-					disabled={isSaving}
+					style={[styles.createButton, { backgroundColor: colors.tint }]}
+					onPress={handleCreateGroup}
+					disabled={loading}
 				>
-					{isSaving ? (
-						<ActivityIndicator color="#fff" />
+					{loading ? (
+						<ActivityIndicator color="black" />
 					) : (
-						<Text style={styles.saveButtonText}>Zapisz</Text>
+						<Text style={styles.createButtonText}>Utwórz grupę</Text>
 					)}
 				</TouchableOpacity>
-			</ScrollView>
-		);
-	}, [
-		user,
-		loading,
-		title,
-		description,
-		location,
-		date,
-		time,
-		maxParticipants,
-		showDatePicker,
-		showTimePicker,
-		isSaving,
-		colors,
-	]);
-
-	return content;
+			</View>
+		</ScrollView>
+	);
 }
 
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 	},
-	contentContainer: {
-		padding: 16,
-		paddingTop: 20,
+	header: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingHorizontal: 24,
+		paddingTop: 24,
+		paddingBottom: 16,
 	},
-	formGroup: {
-		marginBottom: 16,
+	backButton: {
+		marginRight: 16,
+	},
+	title: {
+		fontSize: 28,
+		fontWeight: 'bold',
+	},
+	form: {
+		padding: 24,
+	},
+	inputContainer: {
+		marginBottom: 24,
 	},
 	label: {
 		fontSize: 16,
+		fontWeight: '500',
 		marginBottom: 8,
-		fontWeight: "500",
 	},
 	input: {
+		height: 50,
+		borderWidth: 1,
 		borderRadius: 8,
-		padding: 12,
+		paddingHorizontal: 16,
 		fontSize: 16,
 	},
 	textArea: {
 		height: 100,
-		textAlignVertical: "top",
+		textAlignVertical: 'top',
+		paddingTop: 12,
 	},
-	saveButton: {
+	dateButton: {
+		height: 50,
+		borderWidth: 1,
 		borderRadius: 8,
-		padding: 16,
-		alignItems: "center",
+		paddingHorizontal: 16,
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+	},
+	dateText: {
+		fontSize: 16,
+	},
+	createButton: {
+		height: 50,
+		borderRadius: 8,
+		justifyContent: 'center',
+		alignItems: 'center',
 		marginTop: 24,
-		marginBottom: 40,
 	},
-	saveButtonText: {
-		color: "#fff",
+	createButtonText: {
+		color: 'black',
 		fontSize: 16,
-		fontWeight: "bold",
-	},
-	text: {
-		fontSize: 16,
-		marginTop: 10,
+		fontWeight: '600',
 	},
 }); 

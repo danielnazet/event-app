@@ -28,6 +28,7 @@ import {
 } from "../../lib/services/birthdayService";
 import { scheduleBirthdayNotifications } from "../../lib/services/notificationService";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as FileSystem from 'expo-file-system';
 
 export default function BirthdayFormScreen() {
 	const { id } = useLocalSearchParams<{ id: string }>();
@@ -71,31 +72,21 @@ export default function BirthdayFormScreen() {
 	};
 
 	const handleSave = async () => {
-		if (!user) {
-			Alert.alert("Błąd", "Musisz być zalogowany");
-			return;
-		}
-
-		if (!personName) {
-			Alert.alert("Błąd", "Imię jest wymagane");
+		if (!personName.trim()) {
+			Alert.alert('Błąd', 'Imię jest wymagane');
 			return;
 		}
 
 		setLoading(true);
 		try {
-			let imageUrl = imageUri;
-
-			// Jeśli wybrano nowe zdjęcie, prześlij je
-			if (imageUri && imageUri.startsWith("file://")) {
-				const { url, error } = await uploadBirthdayImage(
-					user.id,
-					imageUri
-				);
-				if (error) {
-					console.error("Błąd podczas przesyłania zdjęcia:", error);
-				} else {
-					imageUrl = url;
+			let imageUrl = null;
+			if (imageUri) {
+				const uploadResult = await uploadBirthdayImage(user!.id, imageUri);
+				if (uploadResult.error) {
+					throw new Error('Nie udało się przesłać zdjęcia');
 				}
+				imageUrl = uploadResult.url;
+				console.log('Zdjęcie zapisane:', imageUrl);
 			}
 
 			const birthdayData = {
@@ -136,34 +127,51 @@ export default function BirthdayFormScreen() {
 				);
 			}
 		} catch (error) {
-			console.error("Błąd podczas zapisywania urodzin:", error);
-			Alert.alert("Błąd", "Wystąpił nieoczekiwany błąd");
+			console.error('Błąd podczas zapisywania:', error);
+			Alert.alert('Błąd', 'Nie udało się zapisać urodzin');
 		} finally {
 			setLoading(false);
 		}
 	};
 
 	const pickImage = async () => {
-		const { status } =
-			await ImagePicker.requestMediaLibraryPermissionsAsync();
+		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-		if (status !== "granted") {
-			Alert.alert(
-				"Błąd",
-				"Potrzebujemy uprawnień do galerii, aby wybrać zdjęcie"
-			);
+		if (status !== 'granted') {
+			Alert.alert('Błąd', 'Potrzebujemy uprawnień do galerii, aby wybrać zdjęcie');
 			return;
 		}
 
-		const result = await ImagePicker.launchImageLibraryAsync({
-			mediaTypes: ImagePicker.MediaTypeOptions.Images,
-			allowsEditing: true,
-			aspect: [1, 1],
-			quality: 0.8,
-		});
+		try {
+			const result = await ImagePicker.launchImageLibraryAsync({
+				mediaTypes: ImagePicker.MediaTypeOptions.Images,
+				allowsEditing: true,
+				aspect: [1, 1],
+				quality: 1,
+				base64: false
+			});
 
-		if (!result.canceled && result.assets && result.assets.length > 0) {
-			setImageUri(result.assets[0].uri);
+			if (!result.canceled && result.assets && result.assets.length > 0) {
+				const selectedAsset = result.assets[0];
+				
+				if (!selectedAsset.uri) {
+					Alert.alert('Błąd', 'Nie udało się pobrać zdjęcia');
+					return;
+				}
+
+				const fileInfo = await FileSystem.getInfoAsync(selectedAsset.uri);
+				console.log('Info o wybranym pliku:', fileInfo);
+
+				if (!fileInfo.exists || fileInfo.size === 0) {
+					Alert.alert('Błąd', 'Wybrany plik jest pusty lub nie istnieje');
+					return;
+				}
+
+				setImageUri(selectedAsset.uri);
+			}
+		} catch (error) {
+			console.error('Błąd podczas wybierania zdjęcia:', error);
+			Alert.alert('Błąd', 'Nie udało się wybrać zdjęcia');
 		}
 	};
 
